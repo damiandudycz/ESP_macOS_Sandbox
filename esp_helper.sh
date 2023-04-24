@@ -180,11 +180,21 @@ function set_target() {
 
 function build_xcode_project() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
+    [ -e "$VAR_1.xcodeproj" ] && { echo "Project $VAR_1.xcodeproj already exists!"; exit 1; }
     load_env_variables
-    XCODE_TEMPLATE_URL="https://github.com/damiandudycz/ESP_macOS_Sandbox/blob/main/Xcode_Template.tar?raw=true"
-    curl "$XCODE_TEMPLATE_URL" -O Xcode_Template.tar
+    XCODE_TEMPLATE_URL="https://raw.githubusercontent.com/damiandudycz/ESP_macOS_Sandbox/main/Xcode_Template.tar"
+    curl "$XCODE_TEMPLATE_URL" -O
     tar -xf Xcode_Template.tar
     rm Xcode_Template.tar
+    mv -f "__PROJECT_NAME__.xcodeproj" "$VAR_1.xcodeproj"
+    mv -f "$VAR_1.xcodeproj/xcshareddata/xcschemes/__PROJECT_NAME__.xcscheme" "$VAR_1.xcodeproj/xcshareddata/xcschemes/$VAR_1.xcscheme"
+    RENAMES_IN_FILES=(
+        "$VAR_1.xcodeproj/project.pbxproj"
+        "$VAR_1.xcodeproj/xcshareddata/xcschemes/$VAR_1.xcscheme"
+    )
+    for file in "${RENAMES_IN_FILES[@]}"; do
+        sed -i '' "s/__PROJECT_NAME__/$VAR_1/g" "$file"
+    done
 }
 
 case "$ACTION" in
