@@ -182,7 +182,9 @@ function build_xcode_project() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
     XCODE_TEMPLATE_URL="https://github.com/damiandudycz/ESP_macOS_Sandbox/blob/main/Xcode_Template.tar?raw=true"
-    curl "$XCODE_TEMPLATE_URL" | tar -xz
+#    curl "$XCODE_TEMPLATE_URL" -O Xcode_Template.tar
+    tar -xf Xcode_Template.tar
+#    rm Xcode_Template.tar
 }
 
 case "$ACTION" in
