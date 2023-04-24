@@ -146,38 +146,38 @@ function create() {
 function build() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
-    cd "$PROJECT_DIR" && idf.py build
+    cd "$PROJECT_DIR" && idf.py build && cd "$SRCROOT"
 }
 
 function run() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
-    cd "$PROJECT_DIR" && idf.py flash monitor
+    cd "$PROJECT_DIR" && idf.py flash monitor && cd "$SRCROOT"
 }
 
 function autorun() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
-    cd "$PROJECT_DIR" && idf.py build flash monitor
+    cd "$PROJECT_DIR" && idf.py build flash monitor && cd "$SRCROOT"
 }
 
 function clean() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
-    cd "$PROJECT_DIR" && idf.py clean
+    cd "$PROJECT_DIR" && idf.py clean && cd "$SRCROOT"
 }
 
 function configure() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
-    cd "$PROJECT_DIR" && idf.py menuconfig
+    cd "$PROJECT_DIR" && idf.py menuconfig && cd "$SRCROOT"
 }
 
 function set_target() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <ESP_TARGET>"; exit 1; }
     [ -z "$VAR_2" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <ESP_TARGET>"; exit 1; }
     load_env_variables
-    cd "$PROJECT_DIR" && idf.py set-target $VAR_2
+    cd "$PROJECT_DIR" && idf.py set-target $VAR_2 && cd "$SRCROOT"
 }
 
 function build_xcode_project() {
@@ -210,11 +210,12 @@ function bootstrap_project() {
     setup_env &&
     create "$VAR_1" &&
     set_target "$VAR_1" "$VAR_2" &&
-    if [ "$VAR_1" == "xcode" ] || [ "$VAR_1" == "xcode" ]; then
+    if [ "$VAR_3" == "xcode" ] || [ "$VAR_4" == "xcode" ]; then
+        echo "AAA"
         build_xcode_project "$VAR_1"
     fi
 #    TODO:
-#    if [ "$VAR_1" == "pio" ] || [ "$VAR_1" == "pio" ]; then
+#    if [ "$VAR_3" == "pio" ] || [ "$VAR_4" == "pio" ]; then
 #        build_pio_project "$VAR_1"
 #    fi
 }
