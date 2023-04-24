@@ -4,6 +4,7 @@
 ACTION="$1"
 VAR_1="$2"
 VAR_2="$3" # Depending on action
+VAR_3="$4" # Depending on action
 
 # Helper variables.
 if [ -z "$SRCROOT" ]; then
@@ -49,6 +50,7 @@ function print_help() {
     echo " - set_target <PROJECT_NAME> <ESP_TARGET>: Set ESP device target"
     echo " - configure <PROJECT_NAME>: Configure project"
     echo " - build_xcode_project <PROJECT_NAME>: Adds Xcode project"
+    echo " - bootstrap_project <PROJECT_NAME> <ESP_TARGET> [xcode] [pio]"
 }
 
 # Loads cached environment variables or exports new one if possible.
@@ -183,9 +185,13 @@ function build_xcode_project() {
     [ -e "$VAR_1.xcodeproj" ] && { echo "Project $VAR_1.xcodeproj already exists!"; exit 1; }
     load_env_variables
     XCODE_TEMPLATE_URL="https://raw.githubusercontent.com/damiandudycz/ESP_macOS_Sandbox/main/Xcode_Template.tar"
-    curl "$XCODE_TEMPLATE_URL" -O
-    tar -xf Xcode_Template.tar
-    rm Xcode_Template.tar
+    if [ -f "Xcode_Template.tar" ]; then
+        tar -xf Xcode_Template.tar
+    else
+        curl "$XCODE_TEMPLATE_URL" -O
+        tar -xf Xcode_Template.tar
+        rm Xcode_Template.tar
+    fi
     mv -f "__PROJECT_NAME__.xcodeproj" "$VAR_1.xcodeproj"
     mv -f "$VAR_1.xcodeproj/xcshareddata/xcschemes/__PROJECT_NAME__.xcscheme" "$VAR_1.xcodeproj/xcshareddata/xcschemes/$VAR_1.xcscheme"
     RENAMES_IN_FILES=(
@@ -195,6 +201,22 @@ function build_xcode_project() {
     for file in "${RENAMES_IN_FILES[@]}"; do
         sed -i '' "s/__PROJECT_NAME__/$VAR_1/g" "$file"
     done
+}
+
+function bootstrap_project() {
+    [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <ESP_TARGET> [xcode] [pio]"; exit 1; }
+    [ -z "$VAR_2" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <ESP_TARGET> [xcode] [pio]"; exit 1; }
+    install_dependencies &&
+    setup_env &&
+    create "$VAR_1" &&
+    set_target "$VAR_1" "$VAR_2" &&
+    if [ "$VAR_1" == "xcode" ] || [ "$VAR_1" == "xcode" ]; then
+        build_xcode_project "$VAR_1"
+    fi
+#    TODO:
+#    if [ "$VAR_1" == "pio" ] || [ "$VAR_1" == "pio" ]; then
+#        build_pio_project "$VAR_1"
+#    fi
 }
 
 case "$ACTION" in
@@ -210,9 +232,10 @@ case "$ACTION" in
     ("set_target") set_target ;;
     ("configure") configure ;;
     ("build_xcode_project") build_xcode_project ;;
+    ("bootstrap_project") bootstrap_project ;;
     (*) print_help ;;
 esac
 
 # TODO:
-# - Add actions to create projects for Xcode, PlatformIO, etc.
+# - Add actions to create projects for PlatformIO.
 # - Add action bootstrap, which will install and prepare all, including Xcode project if required.
