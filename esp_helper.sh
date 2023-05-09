@@ -38,19 +38,29 @@ CACHED_ENV_VARIABLES=(
 )
 
 function print_help() {
-    echo " - help: Show help"
+    echo " - ENVIRONMENT AND DEPENDENCIES:"
     echo " - install_dependencies: Installs Rosetta 2 and xcode-select"
     echo " - setup_env: Install Homebrew, ESP-IDF and ESP-IDF-TOOLS"
     echo " - fix_env [force]: Detect if environment needs some fixes and apply"
+    echo " - "
+    echo " - ESPTool management:"
     echo " - create <PROJECT_NAME>: Create new project"
     echo " - build <PROJECT_NAME>: Build project"
+    echo " - flash <PROJECT_NAME>:"
+    echo " - monitor <PROJECT_NAME>:"
     echo " - run <PROJECT_NAME>: Flash and monitor project"
     echo " - autorun <PROJECT_NAME>: Build, flash and monitor project"
     echo " - clean <PROJECT_NAME>: Clean project"
+    echo " - fullclean <PROJECT_NAME>: Clean project"
     echo " - set_target <PROJECT_NAME> <ESP_TARGET>: Set ESP device target"
     echo " - configure <PROJECT_NAME>: Configure project"
+    echo " - upload_data <PROJECT_NAME> <DATA_FILE> <PARTITION_OFFSET>"
+    echo " - "
+    echo " - ADD IDE SUPPORT:"
     echo " - build_xcode_project <PROJECT_NAME>: Adds Xcode project"
-    echo " - bootstrap_project <PROJECT_NAME> <ESP_TARGET> [xcode] [pio]"
+    echo " - "
+    echo " - OTHER:"
+    echo " - bootstrap_project <PROJECT_NAME> <ESP_TARGET> [xcode] [pio]: Setup environment, project and IDE"
 }
 
 # Loads cached environment variables or exports new one if possible.
@@ -141,12 +151,27 @@ function create() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
     cd "$SRCROOT" && idf.py create-project "$VAR_1" && echo "! Remember to run set_target and configure"
+    # Set custom project CMake configuration
+    echo "FILE(GLOB_RECURSE app_sources \${CMAKE_SOURCE_DIR}/main/*)" > "$PROJECT_DIR/main/CMakeLists.txt"
+    echo "idf_component_register(SRCS \${app_sources})" >> "$PROJECT_DIR/main/CMakeLists.txt"
 }
 
 function build() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
     cd "$PROJECT_DIR" && idf.py build && cd "$SRCROOT"
+}
+
+function flash() {
+    [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
+    load_env_variables
+    cd "$PROJECT_DIR" && idf.py flash && cd "$SRCROOT"
+}
+
+function monotor() {
+    [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
+    load_env_variables
+    cd "$PROJECT_DIR" && idf.py monitor && cd "$SRCROOT"
 }
 
 function run() {
@@ -167,6 +192,12 @@ function clean() {
     cd "$PROJECT_DIR" && idf.py clean && cd "$SRCROOT"
 }
 
+function fullclean() {
+    [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
+    load_env_variables
+    cd "$PROJECT_DIR" && idf.py fullclean && cd "$SRCROOT"
+}
+
 function configure() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
@@ -184,6 +215,7 @@ function build_xcode_project() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     [ -e "$VAR_1.xcodeproj" ] && { echo "Project $VAR_1.xcodeproj already exists!"; exit 1; }
     load_env_variables
+    
     XCODE_TEMPLATE_URL="https://raw.githubusercontent.com/damiandudycz/ESP_macOS_Sandbox/main/Xcode_Template.tar"
     if [ -f "Xcode_Template.tar" ]; then
         tar -xf Xcode_Template.tar
@@ -193,14 +225,21 @@ function build_xcode_project() {
         rm Xcode_Template.tar
     fi
     mv -f "__PROJECT_NAME__.xcodeproj" "$VAR_1.xcodeproj"
-    mv -f "$VAR_1.xcodeproj/xcshareddata/xcschemes/__PROJECT_NAME__.xcscheme" "$VAR_1.xcodeproj/xcshareddata/xcschemes/$VAR_1.xcscheme"
     RENAMES_IN_FILES=(
         "$VAR_1.xcodeproj/project.pbxproj"
-        "$VAR_1.xcodeproj/xcshareddata/xcschemes/$VAR_1.xcscheme"
+        "$VAR_1.xcodeproj/xcshareddata/xcschemes/ESPTool.xcscheme"
     )
     for file in "${RENAMES_IN_FILES[@]}"; do
         sed -i '' "s/__PROJECT_NAME__/$VAR_1/g" "$file"
     done
+}
+
+function upload_data() {
+    [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <DATA_FILE> <PARTITION_OFFSET>"; exit 1; }
+    [ -z "$VAR_2" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <DATA_FILE> <PARTITION_OFFSET>"; exit 1; }
+    [ -z "$VAR_3" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <DATA_FILE> <PARTITION_OFFSET>"; exit 1; }
+    load_env_variables
+    cd "$PROJECT_DIR" && esptool.py write_flash $VAR_3 "$SRCROOT/$VAR_2" && cd "$SRCROOT"
 }
 
 function bootstrap_project() {
@@ -221,19 +260,22 @@ function bootstrap_project() {
 }
 
 case "$ACTION" in
-    ("help") print_help ;;
     ("install_dependencies") install_dependencies ;;
     ("setup_env") setup_env ;;
     ("fix_env") fix_env ;;
     ("create") create ;;
     ("build") build ;;
+    ("flash") build ;;
+    ("monitor") build ;;
     ("run") run ;;
     ("autorun") autorun ;;
     ("clean") clean ;;
+    ("fullclean") fullclean ;;
     ("set_target") set_target ;;
     ("configure") configure ;;
     ("build_xcode_project") build_xcode_project ;;
     ("bootstrap_project") bootstrap_project ;;
+    ("upload_data") upload_data ;;
     (*) print_help ;;
 esac
 
