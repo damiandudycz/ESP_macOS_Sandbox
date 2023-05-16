@@ -24,13 +24,13 @@ CACHED_ENV_VARIABLES=(
     "IDF_TOOLS_INSTALL_CMD" "OPENOCD_SCRIPTS" "ESP_IDF_VERSION" "ESP_ROM_ELF_DIR" "PATH"
 )
 
-function joinByChar() {
+joinByChar() {
     local IFS="$1"
     shift
     echo "$*"
 }
 
-function print_help() {
+print_help() {
     echo " - ENVIRONMENT AND DEPENDENCIES:"
     echo " - install_dependencies: Installs Rosetta 2 and xcode-select"
     echo " - setup_env: Install Homebrew, ESP-IDF and ESP-IDF-TOOLS"
@@ -39,24 +39,21 @@ function print_help() {
     echo " - ESPTool management:"
     echo " - create <PROJECT_NAME>: Create new project"
     echo " - build <PROJECT_NAME>: Build project"
-    echo " - flash <PROJECT_NAME>:"
-    echo " - monitor <PROJECT_NAME>:"
     echo " - run <PROJECT_NAME>: Flash and monitor project"
-    echo " - clean <PROJECT_NAME>: Clean project"
-    echo " - fullclean <PROJECT_NAME>: Clean project"
+    echo " - clean <PROJECT_NAME> [full]: Clean project"
     echo " - set_target <PROJECT_NAME> <ESP_TARGET>: Set ESP device target"
     echo " - configure <PROJECT_NAME>: Configure project"
     echo " - "
     echo " - ADD IDE SUPPORT:"
-    echo " - build_xcode_project <PROJECT_NAME>: Adds Xcode project"
+    echo " - create_xcode_project <PROJECT_NAME>: Adds Xcode project"
     echo " - "
     echo " - OTHER:"
     echo " - bootstrap_project <PROJECT_NAME> <ESP_TARGET> [xcode]: Setup environment, project and IDE"
-    echo " - update_xcode_project <PROJECT_NAME>"
+    echo " - create_xcode_project <PROJECT_NAME>"
 }
 
 # Loads cached environment variables or exports new one if possible.
-function load_env_variables() {
+load_env_variables() {
 
     # Global ENV Variables:
     export IDF_PATH
@@ -79,7 +76,7 @@ function load_env_variables() {
     fi
 }
 
-function install_dependencies() {
+install_dependencies() {
     # Install Xcode Command Line Tools.
     if [[ $(command -v xcode-select) == "" ]]; then
         xcode-select --install
@@ -93,7 +90,7 @@ function install_dependencies() {
     fi
 }
 
-function setup_env() {
+setup_env() {
     load_env_variables
     
     # Install Homebrew.
@@ -128,7 +125,7 @@ function setup_env() {
     fi
 }
 
-function fix_env() {
+fix_env() {
     load_env_variables
 
     if [ "$VAR_1" == "force" ]; then
@@ -140,7 +137,7 @@ function fix_env() {
 }
 
 # Create and configure new ESP-IDF project.
-function create() {
+create() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
     cd "$SRCROOT" && idf.py create-project "$VAR_1" && echo "! Remember to run set_target and configure"
@@ -158,56 +155,39 @@ function create() {
 }
 
 # Build project.
-function build() {
+build() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
     cd "$PROJECT_DIR" && idf.py build && cd "$SRCROOT"
 }
 
-# Flash project.
-function flash() {
-    [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
-    load_env_variables
-    cd "$PROJECT_DIR" && idf.py flash && cd "$SRCROOT"
-}
-
-# Monitor project.
-function monotor() {
-    [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
-    load_env_variables
-    cd "$PROJECT_DIR" && idf.py monitor && cd "$SRCROOT"
-}
-
 # Flash and monitor.
-function run() {
+run() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
     cd "$PROJECT_DIR" && idf.py flash monitor && cd "$SRCROOT"
 }
 
 # Perform soft cleaning.
-function clean() {
-    [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
+clean() {
+    [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> [full]"; exit 1; }
     load_env_variables
-    cd "$PROJECT_DIR" && idf.py clean && cd "$SRCROOT"
-}
-
-# Perform full cleaning.
-function fullclean() {
-    [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
-    load_env_variables
-    cd "$PROJECT_DIR" && idf.py fullclean && cd "$SRCROOT"
+    if [ "$VAR_1" == "full" ]; then
+        cd "$PROJECT_DIR" && idf.py fullclean && cd "$SRCROOT"
+    else
+        cd "$PROJECT_DIR" && idf.py clean && cd "$SRCROOT"
+    fi
 }
 
 # Execute menuconfig of the project.
-function configure() {
+configure() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
     cd "$PROJECT_DIR" && idf.py menuconfig && cd "$SRCROOT"
 }
 
 # Select project target (eq esp32s3). After this perform configure.
-function set_target() {
+set_target() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <ESP_TARGET>"; exit 1; }
     [ -z "$VAR_2" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <ESP_TARGET>"; exit 1; }
     load_env_variables
@@ -215,7 +195,7 @@ function set_target() {
 }
 
 # Setup Xcode HEADER_SEARCH_PATHS and GCC_PREPROCESSOR_DEFINITIONS, using CMake settings and SDKConfig file.
-function update_xcode_project() {
+update_xcode_project() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     
     local SDKCONFIG_PATH="${SRCROOT}/${VAR_1}/sdkconfig"
@@ -246,7 +226,7 @@ function update_xcode_project() {
 }
 
 # Create new Xcode project and setup it.
-function build_xcode_project() {
+create_xcode_project() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     [ -e "$VAR_1.xcodeproj" ] && { echo "Project $VAR_1.xcodeproj already exists!"; exit 1; }
     load_env_variables
@@ -272,7 +252,7 @@ function build_xcode_project() {
 }
 
 # Perform all actions to create and configure new project, including environment and xcode project.
-function bootstrap_project() {
+bootstrap_project() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <ESP_TARGET> [xcode]"; exit 1; }
     [ -z "$VAR_2" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <ESP_TARGET> [xcode]"; exit 1; }
     install_dependencies &&
@@ -280,7 +260,7 @@ function bootstrap_project() {
     create &&
     set_target &&
     if [ "$VAR_3" == "xcode" ] || [ "$VAR_4" == "xcode" ]; then
-        build_xcode_project
+        create_xcode_project
     fi
 }
 
@@ -292,13 +272,10 @@ case "$ACTION" in
     ("set_target") set_target ;;
     ("configure") configure ;;
     ("build") build ;;
-    ("flash") flash ;;
-    ("monitor") monitor ;;
     ("run") run ;;
     ("clean") clean ;;
-    ("fullclean") fullclean ;;
     ("bootstrap_project") bootstrap_project ;;
-    ("build_xcode_project") build_xcode_project ;;
+    ("create_xcode_project") create_xcode_project ;;
     ("update_xcode_project") update_xcode_project ;;
     (*) print_help ;;
 esac
