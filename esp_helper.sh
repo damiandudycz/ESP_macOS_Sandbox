@@ -1,41 +1,34 @@
 #!/bin/bash
 
-# Parameters.
 ACTION="$1"
 VAR_1="$2"
-VAR_2="$3" # Depending on action
-VAR_3="$4" # Depending on action
+VAR_2="$3"
+VAR_3="$4"
 
-# Helper variables.
 if [ -z "$SRCROOT" ]; then
     SRCROOT="$PWD"
 fi
-PROJECT_DIR="$SRCROOT/$VAR_1"
+
 ENV_PATH="$SRCROOT/env"
 CACHED_ENV_PATH="$ENV_PATH/cached_env.sh"
 HOMEBREW_PATH="$ENV_PATH/homebrew"
 IDF_PATH="$ENV_PATH/esp-idf"
 IDF_TOOLS_PATH="$ENV_PATH/esp-idf-tools"
+PROJECT_DIR="$SRCROOT/$VAR_1"
 PATH="$HOMEBREW_PATH/bin:$HOMEBREW_PATH/sbin:$PATH"
 
-HOMEBREW_PACKAGES=(
-    "python3"
-    "cmake"
-    "ninja"
-    "dfu-util"
-    "ccache"
-) # , "platformio", "xcodegen" # additional dependencies will be installed when running accorging scripts.
+# , "platformio", "xcodegen" # additional dependencies will be installed when running accorging scripts.
+HOMEBREW_PACKAGES=("python3" "cmake" "ninja" "dfu-util" "ccache")
 CACHED_ENV_VARIABLES=(
-    "IDF_PATH"
-    "IDF_PYTHON_ENV_PATH"
-    "IDF_TOOLS_EXPORT_CMD"
-    "IDF_DEACTIVATE_FILE_PATH"
-    "IDF_TOOLS_INSTALL_CMD"
-    "OPENOCD_SCRIPTS"
-    "ESP_IDF_VERSION"
-    "ESP_ROM_ELF_DIR"
-    "PATH"
+    "IDF_PATH" "IDF_PYTHON_ENV_PATH" "IDF_TOOLS_EXPORT_CMD" "IDF_DEACTIVATE_FILE_PATH"
+    "IDF_TOOLS_INSTALL_CMD" "OPENOCD_SCRIPTS" "ESP_IDF_VERSION" "ESP_ROM_ELF_DIR" "PATH"
 )
+
+function joinByChar() {
+    local IFS="$1"
+    shift
+    echo "$*"
+}
 
 function print_help() {
     echo " - ENVIRONMENT AND DEPENDENCIES:"
@@ -49,18 +42,17 @@ function print_help() {
     echo " - flash <PROJECT_NAME>:"
     echo " - monitor <PROJECT_NAME>:"
     echo " - run <PROJECT_NAME>: Flash and monitor project"
-    echo " - autorun <PROJECT_NAME>: Build, flash and monitor project"
     echo " - clean <PROJECT_NAME>: Clean project"
     echo " - fullclean <PROJECT_NAME>: Clean project"
     echo " - set_target <PROJECT_NAME> <ESP_TARGET>: Set ESP device target"
     echo " - configure <PROJECT_NAME>: Configure project"
-    echo " - upload_data <PROJECT_NAME> <DATA_FILE> <PARTITION_OFFSET>"
     echo " - "
     echo " - ADD IDE SUPPORT:"
     echo " - build_xcode_project <PROJECT_NAME>: Adds Xcode project"
     echo " - "
     echo " - OTHER:"
-    echo " - bootstrap_project <PROJECT_NAME> <ESP_TARGET> [xcode] [pio]: Setup environment, project and IDE"
+    echo " - bootstrap_project <PROJECT_NAME> <ESP_TARGET> [xcode]: Setup environment, project and IDE"
+    echo " - update_xcode_project <PROJECT_NAME>"
 }
 
 # Loads cached environment variables or exports new one if possible.
@@ -147,6 +139,7 @@ function fix_env() {
     setup_env
 }
 
+# Create and configure new ESP-IDF project.
 function create() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
@@ -154,56 +147,65 @@ function create() {
     # Set custom project CMake configuration
     echo "FILE(GLOB_RECURSE app_sources \${CMAKE_SOURCE_DIR}/main/*)" > "$PROJECT_DIR/main/CMakeLists.txt"
     echo "idf_component_register(SRCS \${app_sources})" >> "$PROJECT_DIR/main/CMakeLists.txt"
+    echo "spiffs_create_partition_image(storage ../data FLASH_IN_PROJECT)" >> "$PROJECT_DIR/main/CMakeLists.txt"
+    echo "# include_directories()" >> "$PROJECT_DIR/main/CMakeLists.txt"
+    
+    echo "nvs,      data, nvs,     ,        24K," >> "$PROJECT_DIR/partitions.csv"
+    echo "phy_init, data, phy,     ,        4k," >> "$PROJECT_DIR/partitions.csv"
+    echo "factory,  app,  factory, ,        1984K," >> "$PROJECT_DIR/partitions.csv"
+    echo "storage,  data, spiffs,  ,        2048K" >> "$PROJECT_DIR/partitions.csv"
 }
 
+# Build project.
 function build() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
     cd "$PROJECT_DIR" && idf.py build && cd "$SRCROOT"
 }
 
+# Flash project.
 function flash() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
     cd "$PROJECT_DIR" && idf.py flash && cd "$SRCROOT"
 }
 
+# Monitor project.
 function monotor() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
     cd "$PROJECT_DIR" && idf.py monitor && cd "$SRCROOT"
 }
 
+# Flash and monitor.
 function run() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
     cd "$PROJECT_DIR" && idf.py flash monitor && cd "$SRCROOT"
 }
 
-function autorun() {
-    [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
-    load_env_variables
-    cd "$PROJECT_DIR" && idf.py build flash monitor && cd "$SRCROOT"
-}
-
+# Perform soft cleaning.
 function clean() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
     cd "$PROJECT_DIR" && idf.py clean && cd "$SRCROOT"
 }
 
+# Perform full cleaning.
 function fullclean() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
     cd "$PROJECT_DIR" && idf.py fullclean && cd "$SRCROOT"
 }
 
+# Execute menuconfig of the project.
 function configure() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
     cd "$PROJECT_DIR" && idf.py menuconfig && cd "$SRCROOT"
 }
 
+# Select project target (eq esp32s3). After this perform configure.
 function set_target() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <ESP_TARGET>"; exit 1; }
     [ -z "$VAR_2" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <ESP_TARGET>"; exit 1; }
@@ -211,12 +213,44 @@ function set_target() {
     cd "$PROJECT_DIR" && idf.py set-target $VAR_2 && cd "$SRCROOT"
 }
 
+# Setup Xcode HEADER_SEARCH_PATHS and GCC_PREPROCESSOR_DEFINITIONS, using CMake settings and SDKConfig file.
+function update_xcode_project() {
+    [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
+    
+    local SDKCONFIG_PATH="${SRCROOT}/${VAR_1}/sdkconfig"
+    local XCODEPROJ_PATH="${SRCROOT}/${VAR_1}.xcodeproj/project.pbxproj"
+    
+    cd "$SRCROOT"
+    
+    # HEADER_SEARCH_PATHS
+    # TOOLCHAIN_HEADERS
+    local TOOLCHAIN_PATH=$( cat $VAR_1/build/compile_commands.json | grep "command" -m1 | sed 's/.*"command": "\(.*\)\/bin.*/\1/' | sed -e "s|$SRCROOT|\$(SRCROOT)|" )
+    local TOOLCHAIN_FILENAME=$( basename "$TOOLCHAIN_PATH" )
+    local TOOLCHAIN_VERSION=$( echo "$TOOLCHAIN_PATH" | awk -F'-elf/esp-|_' '{print $2}' )
+    local TOOLCHAIN_HEADERS=(
+        "\\\"$TOOLCHAIN_PATH/$TOOLCHAIN_FILENAME/include\\\""
+        "\\\"$TOOLCHAIN_PATH/lib/gcc/$TOOLCHAIN_FILENAME/$TOOLCHAIN_VERSION/include\\\""
+    )
+    # INCLUDED HEADERS
+    IFS=$'\n' read -d '' -ra NEW_HEADERS_PATHS_CONTENTS_ARRAY <<< "$(cat $VAR_1/build/compile_commands.json | grep '"command":' | sed -e "s/\"command\": \"//g" | sed -e "s/\"//g" | xargs | sed "s/ /\n/g" | grep -- "^-I" | sort | uniq | sed -e "s/^-I//" | sed -e "s|$SRCROOT|\$(SRCROOT)|" | sed 's/.*/\\"&\\"/')"
+    # ALL HEADERS
+    local ALL_HEADERS=("${TOOLCHAIN_HEADERS[@]}" "${NEW_HEADERS_PATHS_CONTENTS_ARRAY[@]}")
+    local ALL_HEADERS_STRING=$( joinByChar "," "${ALL_HEADERS[@]}" )
+    sed -i '' -e "s|HEADER_SEARCH_PATHS = (\(.*\));|HEADER_SEARCH_PATHS = ($ALL_HEADERS_STRING);|g" "$XCODEPROJ_PATH"
+
+    # GCC_PREPROCESSOR_DEFINITIONS
+    local NEW_SDKCONFIG_CONTENTS_ARRAY=$(grep -vE '^\s*($|#)' "${SDKCONFIG_PATH}" | sed 's/"//g' | sed 's/.*/\\"&\\"/')
+    local NEW_SDKCONFIG_CONTENTS=$( joinByChar "," $NEW_SDKCONFIG_CONTENTS_ARRAY )
+    sed -i '' -e "s|GCC_PREPROCESSOR_DEFINITIONS = (\(.*\));|GCC_PREPROCESSOR_DEFINITIONS = ($NEW_SDKCONFIG_CONTENTS);|g" "$XCODEPROJ_PATH"
+}
+
+# Create new Xcode project and setup it.
 function build_xcode_project() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     [ -e "$VAR_1.xcodeproj" ] && { echo "Project $VAR_1.xcodeproj already exists!"; exit 1; }
     load_env_variables
     
-    XCODE_TEMPLATE_URL="https://raw.githubusercontent.com/damiandudycz/ESP_macOS_Sandbox/main/Xcode_Template.tar"
+    local XCODE_TEMPLATE_URL="https://raw.githubusercontent.com/damiandudycz/ESP_macOS_Sandbox/main/Xcode_Template.tar"
     if [ -f "Xcode_Template.tar" ]; then
         tar -xf Xcode_Template.tar
     else
@@ -225,38 +259,28 @@ function build_xcode_project() {
         rm Xcode_Template.tar
     fi
     mv -f "__PROJECT_NAME__.xcodeproj" "$VAR_1.xcodeproj"
-    RENAMES_IN_FILES=(
+    local RENAMES_IN_FILES=(
         "$VAR_1.xcodeproj/project.pbxproj"
         "$VAR_1.xcodeproj/xcshareddata/xcschemes/ESPTool.xcscheme"
     )
     for file in "${RENAMES_IN_FILES[@]}"; do
         sed -i '' "s/__PROJECT_NAME__/$VAR_1/g" "$file"
     done
+    xcodebuild -project "$VAR_1.xcodeproj" -scheme ESPTool
+    update_xcode_project
 }
 
-function upload_data() {
-    [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <DATA_FILE> <PARTITION_OFFSET>"; exit 1; }
-    [ -z "$VAR_2" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <DATA_FILE> <PARTITION_OFFSET>"; exit 1; }
-    [ -z "$VAR_3" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <DATA_FILE> <PARTITION_OFFSET>"; exit 1; }
-    load_env_variables
-    cd "$PROJECT_DIR" && esptool.py write_flash $VAR_3 "$SRCROOT/$VAR_2" && cd "$SRCROOT"
-}
-
+# Perform all actions to create and configure new project, including environment and xcode project.
 function bootstrap_project() {
-    [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <ESP_TARGET> [xcode] [pio]"; exit 1; }
-    [ -z "$VAR_2" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <ESP_TARGET> [xcode] [pio]"; exit 1; }
+    [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <ESP_TARGET> [xcode]"; exit 1; }
+    [ -z "$VAR_2" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <ESP_TARGET> [xcode]"; exit 1; }
     install_dependencies &&
     setup_env &&
-    create "$VAR_1" &&
-    set_target "$VAR_1" "$VAR_2" &&
+    create &&
+    set_target &&
     if [ "$VAR_3" == "xcode" ] || [ "$VAR_4" == "xcode" ]; then
-        echo "AAA"
-        build_xcode_project "$VAR_1"
+        build_xcode_project
     fi
-#    TODO:
-#    if [ "$VAR_3" == "pio" ] || [ "$VAR_4" == "pio" ]; then
-#        build_pio_project "$VAR_1"
-#    fi
 }
 
 case "$ACTION" in
@@ -264,21 +288,20 @@ case "$ACTION" in
     ("setup_env") setup_env ;;
     ("fix_env") fix_env ;;
     ("create") create ;;
-    ("build") build ;;
-    ("flash") build ;;
-    ("monitor") build ;;
-    ("run") run ;;
-    ("autorun") autorun ;;
-    ("clean") clean ;;
-    ("fullclean") fullclean ;;
     ("set_target") set_target ;;
     ("configure") configure ;;
-    ("build_xcode_project") build_xcode_project ;;
+    ("build") build ;;
+    ("flash") flash ;;
+    ("monitor") monitor ;;
+    ("run") run ;;
+    ("clean") clean ;;
+    ("fullclean") fullclean ;;
     ("bootstrap_project") bootstrap_project ;;
-    ("upload_data") upload_data ;;
+    ("build_xcode_project") build_xcode_project ;;
+    ("update_xcode_project") update_xcode_project ;;
     (*) print_help ;;
 esac
 
 # TODO:
 # - Add actions to create projects for PlatformIO.
-# - Add action bootstrap, which will install and prepare all, including Xcode project if required.
+# - Join some actions into one. setup_env+fix_env, clean+fullclean, build_xcode_project+setup_xcode_project, flash+monitor(maybe)=run
