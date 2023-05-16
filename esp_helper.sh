@@ -144,10 +144,11 @@ function create() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
     load_env_variables
     cd "$SRCROOT" && idf.py create-project "$VAR_1" && echo "! Remember to run set_target and configure"
+    mkdir "$PROJECT_DIR/data"
     # Set custom project CMake configuration
     echo "FILE(GLOB_RECURSE app_sources \${CMAKE_SOURCE_DIR}/main/*)" > "$PROJECT_DIR/main/CMakeLists.txt"
     echo "idf_component_register(SRCS \${app_sources})" >> "$PROJECT_DIR/main/CMakeLists.txt"
-    echo "spiffs_create_partition_image(storage ../data FLASH_IN_PROJECT)" >> "$PROJECT_DIR/main/CMakeLists.txt"
+    echo "# spiffs_create_partition_image(storage ../data FLASH_IN_PROJECT)" >> "$PROJECT_DIR/main/CMakeLists.txt"
     echo "# include_directories()" >> "$PROJECT_DIR/main/CMakeLists.txt"
     
     echo "nvs,      data, nvs,     ,        24K," >> "$PROJECT_DIR/partitions.csv"
