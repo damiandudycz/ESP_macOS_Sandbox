@@ -11,6 +11,7 @@ if [ -z "$SRCROOT" ]; then
     SRCROOT="$PWD"
 fi
 
+ESP_IDF_BRANCH="release/v5.1"
 ENV_PATH="$SRCROOT/env"
 CACHED_ENV_PATH="$ENV_PATH/cached_env.sh"
 HOMEBREW_PATH="$ENV_PATH/homebrew"
@@ -112,7 +113,7 @@ setup_env() {
 
     # Install ESP-IDF.
     if [ ! -e "$IDF_PATH" ]; then
-        git clone --recursive https://github.com/espressif/esp-idf.git -b "release/v5.1" "$IDF_PATH"
+        git clone --recursive https://github.com/espressif/esp-idf.git -b "$ESP_IDF_BRANCH" "$IDF_PATH"
     fi
         
     if [ ! -e "$IDF_TOOLS_PATH" ]; then
