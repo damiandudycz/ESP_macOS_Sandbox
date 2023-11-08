@@ -331,12 +331,13 @@ create_xcode_project() {
     mv -f "__PROJECT_NAME__.xcodeproj" "$VAR_1.xcodeproj"
     local RENAMES_IN_FILES=(
         "$VAR_1.xcodeproj/project.pbxproj"
-        "$VAR_1.xcodeproj/xcshareddata/xcschemes/ESPTool.xcscheme"
+        "$VAR_1.xcodeproj/xcshareddata/xcschemes/Run.xcscheme"
+        "$VAR_1.xcodeproj/xcshareddata/xcschemes/Update project.xcscheme"
     )
     for file in "${RENAMES_IN_FILES[@]}"; do
         sed -i '' "s/__PROJECT_NAME__/$VAR_1/g" "$file"
     done
-    xcodebuild -project "$VAR_1.xcodeproj" -scheme ESPTool
+    xcodebuild -project "$VAR_1.xcodeproj" -scheme Run
     update_xcode_project
 }
 
