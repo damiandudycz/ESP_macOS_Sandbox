@@ -11,20 +11,22 @@ if [ -z "$SRCROOT" ]; then
     SRCROOT="$PWD"
 fi
 
-ESP_IDF_BRANCH="release/v5.1"
 ENV_PATH="$SRCROOT/env"
 CACHED_ENV_PATH="$ENV_PATH/cached_env.sh"
 HOMEBREW_PATH="$ENV_PATH/homebrew"
+GEM_PATH="$ENV_PATH/gem"
 IDF_PATH="$ENV_PATH/esp-idf"
 IDF_TOOLS_PATH="$ENV_PATH/esp-idf-tools"
 PROJECT_DIR="$SRCROOT/$VAR_1"
-PATH="$HOMEBREW_PATH/bin:$HOMEBREW_PATH/sbin:$PATH"
+PATH="$HOMEBREW_PATH/bin:$HOMEBREW_PATH/sbin:$GEM_PATH/bin:$GEM_PATH/sbin:$PATH"
 
 # , "platformio", "xcodegen" # additional dependencies will be installed when running accorging scripts.
 HOMEBREW_PACKAGES=("python3" "cmake" "ninja" "dfu-util" "ccache")
+GEM_PACKAGES=("xcodeproj")
 CACHED_ENV_VARIABLES=(
     "IDF_PATH" "IDF_PYTHON_ENV_PATH" "IDF_TOOLS_EXPORT_CMD" "IDF_DEACTIVATE_FILE_PATH"
     "IDF_TOOLS_INSTALL_CMD" "OPENOCD_SCRIPTS" "ESP_IDF_VERSION" "ESP_ROM_ELF_DIR" "PATH"
+    "RUBYLIB"
 )
 
 joinByChar() {
@@ -52,13 +54,13 @@ print_help() {
     echo " - "
     echo " - OTHER:"
     echo " - bootstrap_project <PROJECT_NAME> <ESP_TARGET> [xcode]: Setup environment, project and IDE"
-    echo " - create_xcode_project <PROJECT_NAME>"
+    echo " - create_xcode_project <PROJECT_NAME>: Create new Xcode project from existing ESP-IDF project"
+    echo " - update_xcode_project <PROJECT_NAME>: Fix xcode project header paths directories"
     echo " - exec <PROJECT_NAME> <command> [parameters...]: Run custom command inside project dir"
 }
 
 # Loads cached environment variables or exports new one if possible.
 load_env_variables() {
-
     # Global ENV Variables:
     export IDF_PATH
     export IDF_TOOLS_PATH
@@ -110,10 +112,20 @@ setup_env() {
             eval "$HOMEBREW_PATH/bin/brew install \"$PACKAGE\""
         fi
     done
+    
+    # Install GEM packages.
+    for PACKAGE in "${GEM_PACKAGES[@]}"; do
+        eval "gem install \"$PACKAGE\" --install-dir '$GEM_PATH'"
+    done
+    
+    # Establish RUBYLIB.
+    xcodeproj_version=$(ls -1 "$GEM_PATH/gems" | grep "xcodeproj-" | sed 's/xcodeproj-//')
+    RUBYLIB="$GEM_PATH/gems/xcodeproj-$xcodeproj_version/lib"
+    export RUBYLIB
 
     # Install ESP-IDF.
     if [ ! -e "$IDF_PATH" ]; then
-        git clone --recursive https://github.com/espressif/esp-idf.git -b "$ESP_IDF_BRANCH" "$IDF_PATH"
+        git clone --recursive https://github.com/espressif/esp-idf.git -b "release/v5.1" "$IDF_PATH"
     fi
         
     if [ ! -e "$IDF_TOOLS_PATH" ]; then
@@ -124,7 +136,7 @@ setup_env() {
         rm -rf "$CACHED_ENV_PATH" 2>&1 > /dev/null
         for var in "${CACHED_ENV_VARIABLES[@]}"; do
             VAL=$(printenv "$var")
-            echo "$var=\"$VAL\"" >> "$CACHED_ENV_PATH"
+            echo "export $var=\"$VAL\"" >> "$CACHED_ENV_PATH"
         done
     fi
 }
@@ -147,7 +159,6 @@ create() {
     mkdir "$PROJECT_DIR/partitions"
     mkdir "$PROJECT_DIR/components"
     # Set custom project CMake configuration
-
 
     echo 'FILE(GLOB_RECURSE app_sources ${CMAKE_SOURCE_DIR}/main/*)' > "$PROJECT_DIR/main/CMakeLists.txt"
     echo 'idf_component_register(SRCS ${app_sources})' >> "$PROJECT_DIR/main/CMakeLists.txt"
@@ -265,11 +276,16 @@ set_target() {
 # Setup Xcode HEADER_SEARCH_PATHS and GCC_PREPROCESSOR_DEFINITIONS, using CMake settings and SDKConfig file.
 update_xcode_project() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
-    
+    load_env_variables
+        
     local SDKCONFIG_PATH="${SRCROOT}/${VAR_1}/sdkconfig"
-    local XCODEPROJ_PATH="${SRCROOT}/${VAR_1}.xcodeproj/project.pbxproj"
+    local PROJECT_PATH="${SRCROOT}/${VAR_1}.xcodeproj"
+    local XCODEPROJ_PATH="${PROJECT_PATH}/project.pbxproj"
+    local UPDATE_SCRIPT_PATH="${PROJECT_PATH}/xcodesupport/UpdateXcodeProject.rb"
     
     cd "$SRCROOT"
+    
+    # TODO: Fix updating patches for project which already has values set. It might be hard for multiline values. Might be best to first run some script that will replace multilines with empty ().
     
     # HEADER_SEARCH_PATHS
     # TOOLCHAIN_HEADERS
@@ -291,6 +307,11 @@ update_xcode_project() {
     local NEW_SDKCONFIG_CONTENTS_ARRAY=$(grep -vE '^\s*($|#)' "${SDKCONFIG_PATH}" | sed 's/"//g' | sed 's/.*/\\"&\\"/')
     local NEW_SDKCONFIG_CONTENTS=$( joinByChar "," $NEW_SDKCONFIG_CONTENTS_ARRAY )
     sed -i '' -e "s|GCC_PREPROCESSOR_DEFINITIONS = (\(.*\));|GCC_PREPROCESSOR_DEFINITIONS = ($NEW_SDKCONFIG_CONTENTS);|g" "$XCODEPROJ_PATH"
+    
+    # ADD MAIN GROUP STRUCTURE TO THE PROJECT
+    ruby "$UPDATE_SCRIPT_PATH" "$PROJECT_PATH"
+    
+    cd "$SRCROOT"
 }
 
 # Create new Xcode project and setup it.
