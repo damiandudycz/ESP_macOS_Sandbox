@@ -332,7 +332,7 @@ create_xcode_project() {
     local RENAMES_IN_FILES=(
         "$VAR_1.xcodeproj/project.pbxproj"
         "$VAR_1.xcodeproj/xcshareddata/xcschemes/Run.xcscheme"
-        "$VAR_1.xcodeproj/xcshareddata/xcschemes/Update project.xcscheme"
+        "$VAR_1.xcodeproj/xcshareddata/xcschemes/Update files.xcscheme"
     )
     for file in "${RENAMES_IN_FILES[@]}"; do
         sed -i '' "s/__PROJECT_NAME__/$VAR_1/g" "$file"
