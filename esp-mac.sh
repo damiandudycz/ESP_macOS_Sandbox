@@ -309,7 +309,7 @@ update_xcode_project() {
     sed -i '' -e "s|GCC_PREPROCESSOR_DEFINITIONS = (\(.*\));|GCC_PREPROCESSOR_DEFINITIONS = ($NEW_SDKCONFIG_CONTENTS);|g" "$XCODEPROJ_PATH"
     
     # ADD MAIN GROUP STRUCTURE TO THE PROJECT
-    ruby "$UPDATE_SCRIPT_PATH" "$PROJECT_PATH"
+    ruby "$UPDATE_SCRIPT_PATH" "$PROJECT_PATH" "$VAR_1"
     
     cd "$SRCROOT"
 }
@@ -320,7 +320,9 @@ create_xcode_project() {
     [ -e "$VAR_1.xcodeproj" ] && { echo "Project $VAR_1.xcodeproj already exists!"; exit 1; }
     load_env_variables
     
+    local SDKCONFIG_PATH="${SRCROOT}/${VAR_1}/sdkconfig"
     local XCODE_TEMPLATE_URL="https://raw.githubusercontent.com/damiandudycz/ESP_macOS_Sandbox/main/Xcode_Template.tar"
+
     if [ -f "Xcode_Template.tar" ]; then
         tar -xf Xcode_Template.tar
     else
@@ -337,6 +339,17 @@ create_xcode_project() {
     for file in "${RENAMES_IN_FILES[@]}"; do
         sed -i '' "s/__PROJECT_NAME__/$VAR_1/g" "$file"
     done
+    
+    # Update default configuration
+    # Enable partitions
+    sed -i '' 's/CONFIG_PARTITION_TABLE_SINGLE_APP.*/# CONFIG_PARTITION_TABLE_SINGLE_APP/g' "$SDKCONFIG_PATH"
+    sed -i '' 's/# CONFIG_PARTITION_TABLE_CUSTOM.*/CONFIG_PARTITION_TABLE_CUSTOM=y/g' "$SDKCONFIG_PATH"
+    sed -i '' 's/CONFIG_PARTITION_TABLE_FILENAME=".*/CONFIG_PARTITION_TABLE_FILENAME="partitions.csv"' "$SDKCONFIG_PATH"
+    sed -i '' 's/CONFIG_ESPTOOLPY_FLASHSIZE_2MB=.*/# CONFIG_ESPTOOLPY_FLASHSIZE_2MB/g' "$SDKCONFIG_PATH"
+    sed -i '' 's/# CONFIG_ESPTOOLPY_FLASHSIZE_4MB.*/CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y/g' "$SDKCONFIG_PATH"
+    sed -i '' 's/CONFIG_ESPTOOLPY_FLASHSIZE=".*/CONFIG_ESPTOOLPY_FLASHSIZE="4MB"/g' "$SDKCONFIG_PATH"
+    sed -i '' 's/# CONFIG_ESPTOOLPY_HEADER_FLASHSIZE_UPDATE.*/CONFIG_ESPTOOLPY_HEADER_FLASHSIZE_UPDATE=y/g' "$SDKCONFIG_PATH"
+
     xcodebuild -project "$VAR_1.xcodeproj" -scheme Run
     update_xcode_project
 }
