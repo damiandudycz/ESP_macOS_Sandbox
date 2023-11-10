@@ -138,6 +138,7 @@ setup_env() {
             VAL=$(printenv "$var")
             echo "export $var=\"$VAL\"" >> "$CACHED_ENV_PATH"
         done
+        sed -i '' "s|$ENV_PATH|\$ENV_PATH|g" "$CACHED_ENV_PATH"
     fi
 }
 
@@ -340,6 +341,7 @@ create_xcode_project() {
         sed -i '' "s/__PROJECT_NAME__/$VAR_1/g" "$file"
     done
     
+    # TODO: Move to generic project create function
     # Update default configuration
     # Enable partitions
     sed -i '' 's/CONFIG_PARTITION_TABLE_SINGLE_APP.*/# CONFIG_PARTITION_TABLE_SINGLE_APP/g' "$SDKCONFIG_PATH"
