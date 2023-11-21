@@ -15,6 +15,7 @@ ENV_PATH="$SRCROOT/env"
 CACHED_ENV_PATH="$ENV_PATH/cached_env.sh"
 HOMEBREW_PATH="$ENV_PATH/homebrew"
 GEM_PATH="$ENV_PATH/gem"
+IDF_VERSION="5.2"
 IDF_PATH="$ENV_PATH/esp-idf"
 IDF_TOOLS_PATH="$ENV_PATH/esp-idf-tools"
 PROJECT_DIR="$SRCROOT/$VAR_1"
@@ -57,6 +58,7 @@ print_help() {
     echo " - create_xcode_project <PROJECT_NAME>: Create new Xcode project from existing ESP-IDF project"
     echo " - update_xcode_project <PROJECT_NAME>: Fix xcode project header paths directories"
     echo " - exec <PROJECT_NAME> <command> [parameters...]: Run custom command inside project dir"
+    echo " - add_dependency" # TODO
 }
 
 # Loads cached environment variables or exports new one if possible.
@@ -125,7 +127,7 @@ setup_env() {
 
     # Install ESP-IDF.
     if [ ! -e "$IDF_PATH" ]; then
-        git clone --recursive https://github.com/espressif/esp-idf.git -b "release/v5.1" "$IDF_PATH"
+        git clone --recursive https://github.com/espressif/esp-idf.git -b "release/v$IDF_VERSION" "$IDF_PATH"
     fi
         
     if [ ! -e "$IDF_TOOLS_PATH" ]; then
@@ -369,6 +371,12 @@ bootstrap_project() {
     fi
 }
 
+add_dependency() {
+    [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <COMPONENT_NAME>"; exit 1; }
+    load_env_variables
+    cd "$PROJECT_DIR" && idf.py add-dependency "$VAR_2" && cd "$SRCROOT"
+}
+
 exec_custom_code() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <command> [parameters...]"; exit 1; }
     [ -z "$VAR_2" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME> <command> [parameters...]"; exit 1; }
@@ -388,6 +396,7 @@ case "$ACTION" in
     ("build") build ;;
     ("run") run ;;
     ("clean") clean ;;
+    ("add_dependency") add_dependency ;;
     ("bootstrap_project") bootstrap_project ;;
     ("create_xcode_project") create_xcode_project ;;
     ("update_xcode_project") update_xcode_project ;;
