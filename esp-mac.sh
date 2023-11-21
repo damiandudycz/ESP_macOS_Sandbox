@@ -40,7 +40,6 @@ print_help() {
     echo " - ENVIRONMENT AND DEPENDENCIES:"
     echo " - install_dependencies: Installs Rosetta 2 and xcode-select"
     echo " - setup_env: Install Homebrew, ESP-IDF and ESP-IDF-TOOLS"
-    echo " - fix_env [force]: Detect if environment needs some fixes and apply"
     echo " - "
     echo " - ESPTool management:"
     echo " - create <PROJECT_NAME>: Create new project"
@@ -50,15 +49,12 @@ print_help() {
     echo " - set_target <PROJECT_NAME> <ESP_TARGET>: Set ESP device target"
     echo " - configure <PROJECT_NAME>: Configure project"
     echo " - "
-    echo " - ADD IDE SUPPORT:"
-    echo " - create_xcode_project <PROJECT_NAME>: Adds Xcode project"
-    echo " - "
     echo " - OTHER:"
     echo " - bootstrap_project <PROJECT_NAME> <ESP_TARGET> [xcode]: Setup environment, project and IDE"
-    echo " - create_xcode_project <PROJECT_NAME>: Create new Xcode project from existing ESP-IDF project"
+    echo " - create_xcode_project <PROJECT_NAME>: Create Xcode project for existing ESP-IDF project"
     echo " - update_xcode_project <PROJECT_NAME>: Fix xcode project header paths directories"
+    echo " - add_dependency <PROJECT_NAME> <DEPENDENCY>: Add dependency component to project"
     echo " - exec <PROJECT_NAME> <command> [parameters...]: Run custom command inside project dir"
-    echo " - add_dependency" # TODO
 }
 
 # Loads cached environment variables or exports new one if possible.
@@ -144,16 +140,6 @@ setup_env() {
     fi
 }
 
-fix_env() {
-    load_env_variables
-    if [ "$VAR_1" == "force" ]; then
-        rm -rf "$ENV_PATH"
-    elif [ "$IDF_PATH" != "$ENV_PATH/esp-idf" ]; then
-        rm -rf "$IDF_PATH" "$IDF_TOOLS_PATH" "$CACHED_ENV_PATH"
-    fi
-    setup_env
-}
-
 # Create and configure new ESP-IDF project.
 create() {
     [ -z "$VAR_1" ] && { echo "Usage: $0 $ACTION <PROJECT_NAME>"; exit 1; }
@@ -161,6 +147,8 @@ create() {
     cd "$SRCROOT" && idf.py create-project "$VAR_1" && echo "! Remember to run set_target and configure"
     mkdir "$PROJECT_DIR/partitions"
     mkdir "$PROJECT_DIR/components"
+    mkdir "$PROJECT_DIR/managed_components"
+    touch "$PROJECT_DIR/dependencies.lock"
     # Set custom project CMake configuration
 
     echo 'FILE(GLOB_RECURSE app_sources ${CMAKE_SOURCE_DIR}/main/*)' > "$PROJECT_DIR/main/CMakeLists.txt"
@@ -229,11 +217,10 @@ create() {
     echo 'include_main_directories()' >> "$PROJECT_DIR/main/CMakeLists.txt"
     echo 'process_partitions_directory()' >> "$PROJECT_DIR/main/CMakeLists.txt"
     
-    echo "factory_nvs, data, nvs,     , 24K," >> "$PROJECT_DIR/partitions.csv"
-    echo "nvs,         data, nvs,     , 24K," >> "$PROJECT_DIR/partitions.csv"
-    echo "phy_init,    data, phy,     , 4k," >> "$PROJECT_DIR/partitions.csv"
-    echo "factory,     app,  factory, , 1536K," >> "$PROJECT_DIR/partitions.csv"
-    echo "storage,     data, spiffs,  , 2048K" >> "$PROJECT_DIR/partitions.csv"
+    echo "nvs,      data, nvs,     , 24K," >> "$PROJECT_DIR/partitions.csv"
+    echo "phy_init, data, phy,     , 4k," >> "$PROJECT_DIR/partitions.csv"
+    echo "factory,  app,  factory, , 2048K," >> "$PROJECT_DIR/partitions.csv"
+    echo "storage,  data, spiffs,  , 1024K" >> "$PROJECT_DIR/partitions.csv"
 }
 
 # Build project.
@@ -389,7 +376,6 @@ exec_custom_code() {
 case "$ACTION" in
     ("install_dependencies") install_dependencies ;;
     ("setup_env") setup_env ;;
-    ("fix_env") fix_env ;;
     ("create") create ;;
     ("set_target") set_target ;;
     ("configure") configure ;;
